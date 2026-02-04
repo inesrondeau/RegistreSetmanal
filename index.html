@@ -3,21 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registre Setmanal - Amb Retall</title>
+    <title>Registre Setmanal - Àlbum A5</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
     <style>
         body { font-family: 'Segoe UI', sans-serif; max-width: 500px; margin: 40px auto; padding: 20px; background-color: #f4f7f6; text-align: center; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .form-group { margin-bottom: 20px; text-align: left; }
-        label { display: block; margin-bottom: 10px; font-weight: bold; }
+        label { display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50; }
         .range-value { text-align: center; font-size: 2.5em; font-weight: bold; color: #3498db; }
         textarea { width: 100%; height: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; resize: none; }
         
-        #cropper-wrapper { display: none; margin: 20px 0; background: #eee; border-radius: 8px; overflow: hidden; }
+        /* Contenidor del retall */
+        #cropper-wrapper { display: none; margin: 20px 0; background: #eee; border-radius: 8px; overflow: hidden; max-height: 400px; }
         #image-to-crop { max-width: 100%; display: block; }
         
-        button { width: 100%; padding: 15px; background-color: #27ae60; color: white; border: none; border-radius: 8px; font-size: 1.1em; cursor: pointer; font-weight: bold; }
+        button { width: 100%; padding: 15px; background-color: #27ae60; color: white; border: none; border-radius: 8px; font-size: 1.1em; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:disabled { background-color: #95a5a6; cursor: not-allowed; }
+        
         #result-container { display: none; }
-        #loading { display: none; color: #7f8c8d; font-style: italic; margin: 10px 0; }
+        #loading { display: none; color: #7f8c8d; font-style: italic; margin: 15px 0; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -26,18 +29,18 @@
         <h1>Registre Setmanal</h1>
         
         <div class="form-group">
-            <label>Valoració (0-10):</label>
+            <label>Com ha anat la setmana? (0-10):</label>
             <input type="range" id="score" min="0" max="10" value="5" oninput="document.getElementById('val').innerText = this.value" style="width:100%">
             <div class="range-value" id="val">5</div>
         </div>
 
         <div class="form-group">
-            <label>Comentari:</label>
-            <textarea id="comment" placeholder="Frase per a l'àlbum..."></textarea>
+            <label>El meu comentari:</label>
+            <textarea id="comment" placeholder="Escriu la frase que anirà sota la foto..."></textarea>
         </div>
 
         <div class="form-group">
-            <label>Tria i retalla la teva foto:</label>
+            <label>Tria i retalla la foto:</label>
             <input type="file" id="image-input" accept="image/*">
         </div>
 
@@ -45,7 +48,7 @@
             <img id="image-to-crop">
         </div>
 
-        <div id="loading">Enviant dades...</div>
+        <div id="loading">Enviant dades a l'àlbum...</div>
         <button id="btn-enviar" onclick="processarEnviament()">Guardar Setmana</button>
     </div>
 
@@ -60,7 +63,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore.js";
 
-        // CONFIGURACIÓ FIREBASE
+        // CONFIGURACIÓ FIREBASE - Posa les teves claus aquí
         const firebaseConfig = {
             apiKey: "TU_API_KEY",
             authDomain: "TU_PROYECTO.firebaseapp.com",
@@ -86,10 +89,13 @@
                     imageToCrop.src = event.target.result;
                     cropperWrapper.style.display = 'block';
                     if (cropper) cropper.destroy();
+                    
                     cropper = new Cropper(imageToCrop, {
                         aspectRatio: 16 / 9,
                         viewMode: 1,
                         autoCropArea: 1,
+                        movable: true,
+                        zoomable: true
                     });
                 };
                 reader.readAsDataURL(files[0]);
@@ -105,14 +111,20 @@
             const loader = document.getElementById('loading');
             const btn = document.getElementById('btn-enviar');
             
-            btn.disabled = true;
-            loader.style.display = 'block';
-
             try {
                 let imatgeFinal = "";
+                
                 if (cropper) {
-                    imatgeFinal = cropper.getCroppedCanvas({ width: 800 }).toDataURL('image/jpeg', 0.7);
+                    // Generem el retall amb mida optimitzada (600px d'ample és ideal per A5)
+                    imatgeFinal = cropper.getCroppedCanvas({ 
+                        width: 600,
+                        imageSmoothingQuality: 'medium'
+                    }).toDataURL('image/jpeg', 0.5); // Qualitat 0.5 per evitar pes excessiu
                 }
+
+                // Iniciem enviament
+                btn.disabled = true;
+                loader.style.display = 'block';
 
                 const ara = new Date();
                 const iniciAny = new Date(ara.getFullYear(), 0, 1);
@@ -129,7 +141,7 @@
                     timestamp: serverTimestamp()
                 });
 
-                // NETEJA I MOSTRA RESULTAT
+                // Èxit: Netejar i mostrar GIF
                 loader.style.display = 'none';
                 document.getElementById('survey-content').style.display = 'none';
                 document.getElementById('final-greeting').innerText = `Setmana ${numSetmana} guardada!`;
@@ -137,8 +149,8 @@
                 showGif(notaActual);
 
             } catch (e) {
-                console.error(e);
-                alert("Error enviant.");
+                console.error("Error d'enviament:", e);
+                alert("S'ha produït un error. Revisa la teva connexió o la mida de la foto.");
                 btn.disabled = false;
                 loader.style.display = 'none';
             }
