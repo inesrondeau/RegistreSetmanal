@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Setmanal - Sistema Complet</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; max-width: 500px; margin: 40px auto; padding: 20px; background-color: #f4f7f6; text-align: center; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 20px; text-align: left; }
+        label { display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .range-value { text-align: center; font-size: 2em; font-weight: bold; color: #3498db; }
+        textarea { width: 100%; height: 100px; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; resize: none; font-size: 14px; width: 100%; }
+        input[type="file"] { width: 100%; padding: 10px 0; font-size: 14px; }
+        button { width: 100%; padding: 15px; background-color: #27ae60; color: white; border: none; border-radius: 8px; font-size: 1.1em; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:hover { background-color: #219150; }
+        #result-container { display: none; }
+        #loading { display: none; color: #7f8c8d; font-style: italic; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="survey-content">
+        <h1>Com ha anat la setmana?</h1>
+        
+        <div class="form-group">
+            <label>Valora del 0 al 10:</label>
+            <input type="range" id="score" min="0" max="10" value="5" oninput="document.getElementById('val').innerText = this.value">
+            <div class="range-value" id="val">5</div>
+        </div>
+
+        <div class="form-group">
+            <label>vull recordar que...</label>
+            <textarea id="comment" placeholder="Escriu aquí els teus pensaments..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label>Afegeix una imatge:</label>
+            <input type="file" id="image-input" accept="image/*">
+        </div>
+
+        <div id="loading">Enviant dades a la bústia...</div>
+        <button id="btn-enviar" onclick="processarEnviament()">Enviar</button>
+    </div>
+
+    <div id="result-container">
+        <h2 id="final-greeting"></h2>
+        <div id="gif-box"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+  		apiKey: "AIzaSyChNvtLiyY0pd5jUNtZzZH_GK72E97jteo",
+  		authDomain: "registro-semanal.firebaseapp.com",
+  		projectId: "registro-semanal",
+  		storageBucket: "registro-semanal.firebasestorage.app",
+  		messagingSenderId: "452354811680",
+  		appId: "1:452354811680:web:da02eed1b1d1aa8d40d945",
+  		measurementId: "G-9JG5M7CGT9"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const toBase64 = file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+
+        window.processarEnviament = async function() {
+            const nom = prompt("Quin és el teu nom?");
+            if (!nom) return;
+            const cognom = prompt("Quin és el teu cognom?");
+            if (!cognom) return;
+
+            const nota = parseInt(document.getElementById('score').value);
+            const comentari = document.getElementById('comment').value;
+            const fitxer = document.getElementById('image-input').files[0];
+
+            document.getElementById('btn-enviar').disabled = true;
+            document.getElementById('loading').style.display = 'block';
+
+            try {
+                let imatgeData = "";
+                if (fitxer) {
+                    imatgeData = await toBase64(fitxer);
+                }
+
+                await addDoc(collection(db, "respostes_setmanals"), {
+                    nom,
+                    cognom,
+                    nota,
+                    comentari,
+                    imatge64: imatgeData,
+                    dataEnviament: serverTimestamp()
+                });
+
+                document.getElementById('survey-content').style.display = 'none';
+                document.getElementById('final-greeting').innerText = `Gràcies, ${nom}!`;
+                document.getElementById('result-container').style.display = 'block';
+                showGif(nota);
+
+            } catch (e) {
+                console.error("Error:", e);
+                alert("Error al enviar.");
+                document.getElementById('btn-enviar').disabled = false;
+                document.getElementById('loading').style.display = 'none';
+            }
+        };
+
+        function showGif(nota) {
+            let gifId = "";
+            if (nota <= 3) gifId = "16778760554072111618";
+            else if (nota <= 6) gifId = "13031104854113737447";
+            else if (nota <= 8) gifId = "15272861";
+            else gifId = "5549795156449910681";
+
+            document.getElementById('gif-box').innerHTML = `<div class="tenor-gif-embed" data-postid="${gifId}" data-share-method="host" data-aspect-ratio="1" data-width="100%"></div>`;
+            const script = document.createElement('script');
+            script.src = "https://tenor.com/embed.js";
+            document.body.appendChild(script);
+        }
+    </script>
+</body>
+</html>
