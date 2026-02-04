@@ -11,10 +11,14 @@
         label { display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50; }
         .range-value { text-align: center; font-size: 2.5em; font-weight: bold; color: #3498db; }
         textarea { width: 100%; height: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; resize: none; }
+        
+        /* Contenidor del retall */
         #cropper-wrapper { display: none; margin: 20px 0; background: #eee; border-radius: 8px; overflow: hidden; max-height: 400px; }
         #image-to-crop { max-width: 100%; display: block; }
+        
         button { width: 100%; padding: 15px; background-color: #27ae60; color: white; border: none; border-radius: 8px; font-size: 1.1em; cursor: pointer; font-weight: bold; transition: 0.3s; }
         button:disabled { background-color: #95a5a6; cursor: not-allowed; }
+        
         #result-container { display: none; }
         #loading { display: none; color: #7f8c8d; font-style: italic; margin: 15px 0; font-weight: bold; }
     </style>
@@ -44,7 +48,7 @@
             <img id="image-to-crop">
         </div>
 
-        <div id="loading">Enviant dades a l'àlbum...</div>
+        <div id="loading">Enviant dades a la base de dades...</div>
         <button id="btn-enviar" onclick="processarEnviament()">Guardar Setmana</button>
     </div>
 
@@ -59,6 +63,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore.js";
 
+        // CONFIGURACIÓ FIREBASE - RECORDA POSAR LES TEVES DADES REALS AQUÍ
         const firebaseConfig = {
             apiKey: "TU_API_KEY",
             authDomain: "TU_PROYECTO.firebaseapp.com",
@@ -76,6 +81,7 @@
         const imageToCrop = document.getElementById('image-to-crop');
         const cropperWrapper = document.getElementById('cropper-wrapper');
 
+        // Escolta quan tries una imatge
         imageInput.addEventListener('change', (e) => {
             const files = e.target.files;
             if (files && files.length > 0) {
@@ -84,6 +90,7 @@
                     imageToCrop.src = event.target.result;
                     cropperWrapper.style.display = 'block';
                     if (cropper) cropper.destroy();
+                    
                     cropper = new Cropper(imageToCrop, {
                         aspectRatio: 16 / 9,
                         viewMode: 1,
@@ -103,41 +110,38 @@
             const loader = document.getElementById('loading');
             const btn = document.getElementById('btn-enviar');
             
+            // Bloquegem el botó i mostrem el text de càrrega
+            btn.disabled = true;
+            loader.style.display = 'block';
+
             try {
                 let imatgeFinal = "";
                 
-                if (cropper) {
-                    // Generem el retall
-                    imatgeFinal = cropper.getCroppedCanvas({ width: 800 }).toDataURL('image/jpeg', 0.6);
-                    
-                    // --- VALIDA EL PES DE LA IMATGE (Límit 1MB) ---
-                    const midaEnBytes = Math.round((imatgeFinal.length * 3) / 4);
-                    const midaEnMB = midaEnBytes / (1024 * 1024);
-                    
-                    if (midaEnMB > 1) {
-                        alert(`La foto és massa pesada (${midaEnMB.toFixed(2)} MB). Prova de retallar una àrea més petita o baixar la qualitat.`);
-                        return; // Atura l'enviament
-                    }
+                // NOMÉS retalla si hi ha una foto seleccionada
+                if (cropper && imageInput.files.length > 0) {
+                    imatgeFinal = cropper.getCroppedCanvas({ 
+                        width: 800,
+                        imageSmoothingQuality: 'medium'
+                    }).toDataURL('image/jpeg', 0.5); // Qualitat mitjana per estalviar espai
                 }
-
-                btn.disabled = true;
-                loader.style.display = 'block';
 
                 const ara = new Date();
                 const iniciAny = new Date(ara.getFullYear(), 0, 1);
                 const numSetmana = Math.ceil((Math.floor((ara - iniciAny) / 86400000) + iniciAny.getDay() + 1) / 7);
                 const notaActual = parseInt(document.getElementById('score').value);
 
+                // ENVIAMENT A FIREBASE
                 await addDoc(collection(db, "registre_album_A5"), {
                     usuari: `${nom} ${cognom}`,
                     nota: notaActual,
-                    comentari: document.getElementById('comment').value,
+                    comentari: document.getElementById('comment').value || "",
                     imatge_base64: imatgeFinal,
                     setmana: numSetmana,
                     data_text: ara.toLocaleDateString("ca-ES", { day: 'numeric', month: 'long' }),
                     timestamp: serverTimestamp()
                 });
 
+                // Si tot va bé, netegem i mostrem el GIF
                 loader.style.display = 'none';
                 document.getElementById('survey-content').style.display = 'none';
                 document.getElementById('final-greeting').innerText = `Setmana ${numSetmana} guardada!`;
@@ -145,8 +149,8 @@
                 showGif(notaActual);
 
             } catch (e) {
-                console.error("Error:", e);
-                alert("Error en l'enviament. Revisa la connexió.");
+                console.error("Error detallat:", e);
+                alert("Error d'enviament. Revisa les Regles de Firebase o la teva connexió.");
                 btn.disabled = false;
                 loader.style.display = 'none';
             }
@@ -162,3 +166,4 @@
     </script>
 </body>
 </html>
+
