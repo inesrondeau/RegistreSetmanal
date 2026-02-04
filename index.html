@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Setmanal - Sistema Complet</title>
+    <title>Control Setmanal - Registre de Data</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, sans-serif; max-width: 500px; margin: 40px auto; padding: 20px; background-color: #f4f7f6; text-align: center; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .form-group { margin-bottom: 20px; text-align: left; }
@@ -39,7 +39,7 @@
             <input type="file" id="image-input" accept="image/*">
         </div>
 
-        <div id="loading">Enviant dades a la bústia...</div>
+        <div id="loading">Enviant dades i guardant data...</div>
         <button id="btn-enviar" onclick="processarEnviament()">Enviar</button>
     </div>
 
@@ -53,13 +53,12 @@
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore.js";
 
         const firebaseConfig = {
-  		apiKey: "AIzaSyChNvtLiyY0pd5jUNtZzZH_GK72E97jteo",
-  		authDomain: "registro-semanal.firebaseapp.com",
-  		projectId: "registro-semanal",
-  		storageBucket: "registro-semanal.firebasestorage.app",
-  		messagingSenderId: "452354811680",
-  		appId: "1:452354811680:web:da02eed1b1d1aa8d40d945",
-  		measurementId: "G-9JG5M7CGT9"
+            apiKey: "TU_API_KEY",
+            authDomain: "TU_PROYECTO.firebaseapp.com",
+            projectId: "TU_PROYECTO_ID",
+            storageBucket: "TU_PROYECTO.appspot.com",
+            messagingSenderId: "TU_SENDER_ID",
+            appId: "TU_APP_ID"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -91,13 +90,15 @@
                     imatgeData = await toBase64(fitxer);
                 }
 
+                // Guardem a Firestore amb DATA
                 await addDoc(collection(db, "respostes_setmanals"), {
                     nom,
                     cognom,
                     nota,
                     comentari,
                     imatge64: imatgeData,
-                    dataEnviament: serverTimestamp()
+                    fecha_servidor: serverTimestamp(), // Hora oficial de Google
+                    fecha_lectura: new Date().toLocaleString("es-ES") // Fecha fácil de leer para ti
                 });
 
                 document.getElementById('survey-content').style.display = 'none';
@@ -127,4 +128,5 @@
         }
     </script>
 </body>
+</html>
 </html>
