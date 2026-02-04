@@ -11,14 +11,10 @@
         label { display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50; }
         .range-value { text-align: center; font-size: 2.5em; font-weight: bold; color: #3498db; }
         textarea { width: 100%; height: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; resize: none; }
-        
-        /* Contenidor del retall */
         #cropper-wrapper { display: none; margin: 20px 0; background: #eee; border-radius: 8px; overflow: hidden; max-height: 400px; }
         #image-to-crop { max-width: 100%; display: block; }
-        
         button { width: 100%; padding: 15px; background-color: #27ae60; color: white; border: none; border-radius: 8px; font-size: 1.1em; cursor: pointer; font-weight: bold; transition: 0.3s; }
         button:disabled { background-color: #95a5a6; cursor: not-allowed; }
-        
         #result-container { display: none; }
         #loading { display: none; color: #7f8c8d; font-style: italic; margin: 15px 0; font-weight: bold; }
     </style>
@@ -36,7 +32,7 @@
 
         <div class="form-group">
             <label>El meu comentari:</label>
-            <textarea id="comment" placeholder="Escriu la frase que anirà sota la foto..."></textarea>
+            <textarea id="comment" placeholder="Escriu la frase per a l'àlbum..."></textarea>
         </div>
 
         <div class="form-group">
@@ -63,7 +59,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore.js";
 
-        // CONFIGURACIÓ FIREBASE - Posa les teves claus aquí
         const firebaseConfig = {
             apiKey: "TU_API_KEY",
             authDomain: "TU_PROYECTO.firebaseapp.com",
@@ -89,13 +84,10 @@
                     imageToCrop.src = event.target.result;
                     cropperWrapper.style.display = 'block';
                     if (cropper) cropper.destroy();
-                    
                     cropper = new Cropper(imageToCrop, {
                         aspectRatio: 16 / 9,
                         viewMode: 1,
-                        autoCropArea: 1,
-                        movable: true,
-                        zoomable: true
+                        autoCropArea: 1
                     });
                 };
                 reader.readAsDataURL(files[0]);
@@ -115,14 +107,19 @@
                 let imatgeFinal = "";
                 
                 if (cropper) {
-                    // Generem el retall amb mida optimitzada (600px d'ample és ideal per A5)
-                    imatgeFinal = cropper.getCroppedCanvas({ 
-                        width: 600,
-                        imageSmoothingQuality: 'medium'
-                    }).toDataURL('image/jpeg', 0.5); // Qualitat 0.5 per evitar pes excessiu
+                    // Generem el retall
+                    imatgeFinal = cropper.getCroppedCanvas({ width: 800 }).toDataURL('image/jpeg', 0.6);
+                    
+                    // --- VALIDA EL PES DE LA IMATGE (Límit 1MB) ---
+                    const midaEnBytes = Math.round((imatgeFinal.length * 3) / 4);
+                    const midaEnMB = midaEnBytes / (1024 * 1024);
+                    
+                    if (midaEnMB > 1) {
+                        alert(`La foto és massa pesada (${midaEnMB.toFixed(2)} MB). Prova de retallar una àrea més petita o baixar la qualitat.`);
+                        return; // Atura l'enviament
+                    }
                 }
 
-                // Iniciem enviament
                 btn.disabled = true;
                 loader.style.display = 'block';
 
@@ -141,7 +138,6 @@
                     timestamp: serverTimestamp()
                 });
 
-                // Èxit: Netejar i mostrar GIF
                 loader.style.display = 'none';
                 document.getElementById('survey-content').style.display = 'none';
                 document.getElementById('final-greeting').innerText = `Setmana ${numSetmana} guardada!`;
@@ -149,8 +145,8 @@
                 showGif(notaActual);
 
             } catch (e) {
-                console.error("Error d'enviament:", e);
-                alert("S'ha produït un error. Revisa la teva connexió o la mida de la foto.");
+                console.error("Error:", e);
+                alert("Error en l'enviament. Revisa la connexió.");
                 btn.disabled = false;
                 loader.style.display = 'none';
             }
