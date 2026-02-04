@@ -12,7 +12,6 @@
         .range-value { text-align: center; font-size: 2.5em; font-weight: bold; color: #3498db; }
         textarea { width: 100%; height: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; resize: none; }
         
-        /* Contenedor del recorte */
         #cropper-wrapper { display: none; margin: 20px 0; background: #eee; border-radius: 8px; overflow: hidden; }
         #image-to-crop { max-width: 100%; display: block; }
         
@@ -46,7 +45,7 @@
             <img id="image-to-crop">
         </div>
 
-        <div id="loading">Processant i enviant...</div>
+        <div id="loading">Enviant dades...</div>
         <button id="btn-enviar" onclick="processarEnviament()">Guardar Setmana</button>
     </div>
 
@@ -61,6 +60,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore.js";
 
+        // CONFIGURACIÓ FIREBASE
         const firebaseConfig = {
             apiKey: "TU_API_KEY",
             authDomain: "TU_PROYECTO.firebaseapp.com",
@@ -78,7 +78,6 @@
         const imageToCrop = document.getElementById('image-to-crop');
         const cropperWrapper = document.getElementById('cropper-wrapper');
 
-        // Detectar cuando se sube una imagen para activar el recorte
         imageInput.addEventListener('change', (e) => {
             const files = e.target.files;
             if (files && files.length > 0) {
@@ -87,10 +86,8 @@
                     imageToCrop.src = event.target.result;
                     cropperWrapper.style.display = 'block';
                     if (cropper) cropper.destroy();
-                    
-                    // Configuración del recorte (Proporción ancha para el álbum)
                     cropper = new Cropper(imageToCrop, {
-                        aspectRatio: 16 / 9, // Puedes ajustarlo a 1.5 si prefieres menos ancho
+                        aspectRatio: 16 / 9,
                         viewMode: 1,
                         autoCropArea: 1,
                     });
@@ -103,27 +100,28 @@
             const nom = prompt("El teu nom:");
             if (!nom) return;
             const cognom = prompt("El teu cognom:");
-            if (!nom) return;
+            if (!cognom) return;
 
-            document.getElementById('btn-enviar').disabled = true;
-            document.getElementById('loading').style.display = 'block';
+            const loader = document.getElementById('loading');
+            const btn = document.getElementById('btn-enviar');
+            
+            btn.disabled = true;
+            loader.style.display = 'block';
 
             try {
                 let imatgeFinal = "";
-                
                 if (cropper) {
-                    // Obtener la imagen recortada en formato texto (Base64)
-                    // Bajamos un poco la calidad (0.7) para que Firebase no se sature
                     imatgeFinal = cropper.getCroppedCanvas({ width: 800 }).toDataURL('image/jpeg', 0.7);
                 }
 
                 const ara = new Date();
                 const iniciAny = new Date(ara.getFullYear(), 0, 1);
                 const numSetmana = Math.ceil((Math.floor((ara - iniciAny) / 86400000) + iniciAny.getDay() + 1) / 7);
+                const notaActual = parseInt(document.getElementById('score').value);
 
                 await addDoc(collection(db, "registre_album_A5"), {
                     usuari: `${nom} ${cognom}`,
-                    nota: parseInt(document.getElementById('score').value),
+                    nota: notaActual,
                     comentari: document.getElementById('comment').value,
                     imatge_base64: imatgeFinal,
                     setmana: numSetmana,
@@ -131,23 +129,27 @@
                     timestamp: serverTimestamp()
                 });
 
+                // NETEJA I MOSTRA RESULTAT
+                loader.style.display = 'none';
                 document.getElementById('survey-content').style.display = 'none';
                 document.getElementById('final-greeting').innerText = `Setmana ${numSetmana} guardada!`;
                 document.getElementById('result-container').style.display = 'block';
-                showGif(parseInt(document.getElementById('score').value));
+                showGif(notaActual);
 
             } catch (e) {
                 console.error(e);
-                alert("Error enviant. Prova amb una foto més petita.");
-                document.getElementById('btn-enviar').disabled = false;
-                document.getElementById('loading').style.display = 'none';
+                alert("Error enviant.");
+                btn.disabled = false;
+                loader.style.display = 'none';
             }
         };
 
         function showGif(nota) {
             let gifId = nota <= 3 ? "16778760554072111618" : nota <= 6 ? "13031104854113737447" : nota <= 8 ? "15272861" : "5549795156449910681";
             document.getElementById('gif-box').innerHTML = `<div class="tenor-gif-embed" data-postid="${gifId}" data-width="100%"></div>`;
-            const script = document.createElement('script'); script.src = "https://tenor.com/embed.js"; document.body.appendChild(script);
+            const script = document.createElement('script'); 
+            script.src = "https://tenor.com/embed.js"; 
+            document.body.appendChild(script);
         }
     </script>
 </body>
