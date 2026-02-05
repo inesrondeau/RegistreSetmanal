@@ -3,22 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registre Setmanal - Amb Retall</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <title>Registre Setmanal - Format Àlbum A5</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; max-width: 500px; margin: 40px auto; padding: 20px; background-color: #f4f7f6; text-align: center; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .form-group { margin-bottom: 20px; text-align: left; }
-        label { display: block; margin-bottom: 10px; font-weight: bold; }
-        .range-value { text-align: center; font-size: 2.5em; font-weight: bold; color: #3498db; }
-        textarea { width: 100%; height: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; resize: none; }
-        
-        /* Contenedor del recorte */
-        #cropper-wrapper { display: none; margin: 20px 0; background: #eee; border-radius: 8px; overflow: hidden; }
-        #image-to-crop { max-width: 100%; display: block; }
-        
+        label { display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .range-value { text-align: center; font-size: 2em; font-weight: bold; color: #3498db; }
+        textarea { width: 100%; height: 100px; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; resize: none; }
+        input[type="file"] { width: 100%; padding: 10px 0; }
         button { width: 100%; padding: 15px; background-color: #27ae60; color: white; border: none; border-radius: 8px; font-size: 1.1em; cursor: pointer; font-weight: bold; }
+        #loading { display: none; color: #7f8c8d; font-style: italic; margin-bottom: 10px; }
         #result-container { display: none; }
-        #loading { display: none; color: #7f8c8d; font-style: italic; margin: 10px 0; }
     </style>
 </head>
 <body>
@@ -27,26 +23,22 @@
         <h1>Registre Setmanal</h1>
         
         <div class="form-group">
-            <label>Valoració (0-10):</label>
-            <input type="range" id="score" min="0" max="10" value="5" oninput="document.getElementById('val').innerText = this.value" style="width:100%">
+            <label>Com ha anat la setmana? (0-10):</label>
+            <input type="range" id="score" min="0" max="10" value="5" oninput="document.getElementById('val').innerText = this.value">
             <div class="range-value" id="val">5</div>
         </div>
 
         <div class="form-group">
-            <label>Comentari:</label>
-            <textarea id="comment" placeholder="Frase per a l'àlbum..."></textarea>
+            <label>El meu comentari per a l'àlbum:</label>
+            <textarea id="comment" placeholder="Aquest text apareixerà sota la foto en l'àlbum A5..."></textarea>
         </div>
 
         <div class="form-group">
-            <label>Tria i retalla la teva foto:</label>
+            <label>La foto de la setmana:</label>
             <input type="file" id="image-input" accept="image/*">
         </div>
 
-        <div id="cropper-wrapper">
-            <img id="image-to-crop">
-        </div>
-
-        <div id="loading">Processant i enviant...</div>
+        <div id="loading">Preparant la pàgina de l'àlbum...</div>
         <button id="btn-enviar" onclick="processarEnviament()">Guardar Setmana</button>
     </div>
 
@@ -55,12 +47,11 @@
         <div id="gif-box"></div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
-
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore.js";
 
+        // CONFIGURACIÓ FIREBASE
         const firebaseConfig = {
           apiKey: "AIzaSyChNvtLiyY0pd5jUNtZzZH_GK72E97jteo",
           authDomain: "registro-semanal.firebaseapp.com",
@@ -74,72 +65,53 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        let cropper;
-        const imageInput = document.getElementById('image-input');
-        const imageToCrop = document.getElementById('image-to-crop');
-        const cropperWrapper = document.getElementById('cropper-wrapper');
-
-        // Detectar cuando se sube una imagen para activar el recorte
-        imageInput.addEventListener('change', (e) => {
-            const files = e.target.files;
-            if (files && files.length > 0) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    imageToCrop.src = event.target.result;
-                    cropperWrapper.style.display = 'block';
-                    if (cropper) cropper.destroy();
-                    
-                    // Configuración del recorte (Proporción ancha para el álbum)
-                    cropper = new Cropper(imageToCrop, {
-                        aspectRatio: 16 / 9, // Puedes ajustarlo a 1.5 si prefieres menos ancho
-                        viewMode: 1,
-                        autoCropArea: 1,
-                    });
-                };
-                reader.readAsDataURL(files[0]);
-            }
+        const toBase64 = file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
         });
 
         window.processarEnviament = async function() {
             const nom = prompt("El teu nom:");
             if (!nom) return;
             const cognom = prompt("El teu cognom:");
-            if (!nom) return;
+            if (!cognom) return;
+
+            // Creem un nom de col·lecció net (ex: registre_marta_sanz)
+            const usuarioColeccion = `registre_${nom.trim().toLowerCase().replace(/\s+/g, '_')}_${cognom.trim().toLowerCase().replace(/\s+/g, '_')}`;
+
+            const nota = parseInt(document.getElementById('score').value);
+            const comentari = document.getElementById('comment').value;
+            const fitxer = document.getElementById('image-input').files[0];
 
             document.getElementById('btn-enviar').disabled = true;
             document.getElementById('loading').style.display = 'block';
 
             try {
-                let imatgeFinal = "";
-                
-                if (cropper) {
-                    // Obtener la imagen recortada en formato texto (Base64)
-                    // Bajamos un poco la calidad (0.7) para que Firebase no se sature
-                    imatgeFinal = cropper.getCroppedCanvas({ width: 800 }).toDataURL('image/jpeg', 0.7);
+                let imatgeData = "";
+                if (fitxer) {
+                    imatgeData = await toBase64(fitxer);
                 }
 
-                const ara = new Date();
-                const iniciAny = new Date(ara.getFullYear(), 0, 1);
-                const numSetmana = Math.ceil((Math.floor((ara - iniciAny) / 86400000) + iniciAny.getDay() + 1) / 7);
-
-                await addDoc(collection(db, "registre_album_A5"), {
+                // Guardem en la col·lecció específica de l'usuari
+                await addDoc(collection(db, usuarioColeccion), {
                     usuari: `${nom} ${cognom}`,
-                    nota: parseInt(document.getElementById('score').value),
-                    comentari: document.getElementById('comment').value,
-                    imatge_base64: imatgeFinal,
-                    setmana: numSetmana,
-                    data_text: ara.toLocaleDateString("ca-ES", { day: 'numeric', month: 'long' }),
+                    nota: nota,
+                    comentari: comentari,
+                    imatge_base64: imatgeData,
+                    fecha_formatada: new Date().toLocaleDateString("ca-ES", { day: 'numeric', month: 'long', year: 'numeric' }),
                     timestamp: serverTimestamp()
                 });
 
                 document.getElementById('survey-content').style.display = 'none';
-                document.getElementById('final-greeting').innerText = `Setmana ${numSetmana} guardada!`;
+                document.getElementById('final-greeting').innerText = `Setmana registrada, ${nom}!`;
                 document.getElementById('result-container').style.display = 'block';
-                showGif(parseInt(document.getElementById('score').value));
+                showGif(nota);
 
             } catch (e) {
-                console.error(e);
-                alert("Error enviant. Prova amb una foto més petita.");
+                console.error("Error:", e);
+                alert("Error en guardar. Revisa la mida de la foto o la configuració.");
                 document.getElementById('btn-enviar').disabled = false;
                 document.getElementById('loading').style.display = 'none';
             }
@@ -147,8 +119,10 @@
 
         function showGif(nota) {
             let gifId = nota <= 3 ? "16778760554072111618" : nota <= 6 ? "13031104854113737447" : nota <= 8 ? "15272861" : "5549795156449910681";
-            document.getElementById('gif-box').innerHTML = `<div class="tenor-gif-embed" data-postid="${gifId}" data-width="100%"></div>`;
-            const script = document.createElement('script'); script.src = "https://tenor.com/embed.js"; document.body.appendChild(script);
+            document.getElementById('gif-box').innerHTML = `<div class="tenor-gif-embed" data-postid="${gifId}" data-share-method="host" data-aspect-ratio="1" data-width="100%"></div>`;
+            const script = document.createElement('script'); 
+            script.src = "https://tenor.com/embed.js"; 
+            document.body.appendChild(script);
         }
     </script>
 </body>
