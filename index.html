@@ -121,7 +121,7 @@
                 
                 if (cropper) {
                     // Generem el retall optimitzat a 800px d'ample
-                    imatgeFinal = cropper.getCroppedCanvas({ width: 800 }).toDataURL('image/jpeg', 0.6);
+                    imatgeFinal = cropper.getCroppedCanvas({ width: 800 }).toDataURL('image/jpeg', 0.8);
                     
                     // Validació simple de pes (1MB aprox)
                     if (imatgeFinal.length > 1400000) { 
@@ -172,5 +172,6 @@
     </script>
 </body>
 </html>
+
 
 
